@@ -1,12 +1,43 @@
 const mongoose = require('mongoose');
 const { mongoUri, nodeEnv } = require('./env');
 
+/**
+ * Cached connection for serverless (Vercel) — reuse across warm invocations.
+ */
+let connecting;
+
 async function connectDB() {
-  mongoose.set('strictQuery', true);
-  await mongoose.connect(mongoUri);
-  if (nodeEnv !== 'test') {
-    console.log('MongoDB connected');
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
   }
+
+  if (connecting) return connecting;
+
+  mongoose.set('strictQuery', true);
+  mongoose.set('bufferTimeoutMS', 20000);
+
+  connecting = mongoose
+    .connect(mongoUri, {
+      serverSelectionTimeoutMS: 10000,
+      maxPoolSize: 10,
+    })
+    .then((conn) => {
+      if (nodeEnv !== 'test') {
+        console.log('MongoDB connected');
+      }
+      connecting = null;
+      return conn;
+    })
+    .catch((err) => {
+      connecting = null;
+      throw err;
+    });
+
+  return connecting;
 }
 
-module.exports = { connectDB };
+function isDBReady() {
+  return mongoose.connection.readyState === 1;
+}
+
+module.exports = { connectDB, isDBReady };

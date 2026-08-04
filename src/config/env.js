@@ -8,9 +8,13 @@ for (const key of required) {
   }
 }
 
+const nodeEnv =
+  process.env.NODE_ENV ||
+  (process.env.VERCEL ? 'production' : 'development');
+
 module.exports = {
   port: Number(process.env.PORT) || 5000,
-  nodeEnv: process.env.NODE_ENV || 'development',
+  nodeEnv,
   mongoUri: process.env.MONGO_URI,
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET,

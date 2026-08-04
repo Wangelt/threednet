@@ -7,14 +7,27 @@ const { clientUrl, nodeEnv } = require('./config/env');
 const routes = require('./routes');
 const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');
+const ensureDB = require('./middleware/ensureDB');
 
 const app = express();
 
 app.set('trust proxy', 1);
 
+const allowedOrigins = [
+  clientUrl,
+  'https://threednet.vercel.app',
+  'http://localhost:3000',
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: clientUrl,
+    origin(origin, callback) {
+      // Allow non-browser clients (Postman, server-to-server)
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
     credentials: true,
   })
 );
@@ -35,6 +48,7 @@ app.use(
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+app.use(ensureDB);
 app.use('/api', routes);
 
 app.use(notFound);
