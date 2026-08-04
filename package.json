@@ -10,7 +10,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node scripts/seed.js",
-    "postman": "node scripts/generate-postman.js"
+    "postman": "node scripts/generate-postman.js && node scripts/add-postman-examples.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
