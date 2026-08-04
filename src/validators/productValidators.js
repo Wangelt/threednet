@@ -3,6 +3,7 @@ const Joi = require('joi');
 const objectId = Joi.string().hex().length(24);
 
 const variantSchema = Joi.object({
+  _id: objectId,
   label: Joi.string().required(),
   material: Joi.string().allow('', null),
   color: Joi.string().allow('', null),
@@ -36,6 +37,7 @@ const createProductSchema = Joi.object({
   isFeatured: Joi.boolean(),
   metaTitle: Joi.string().allow('', null),
   metaDescription: Joi.string().allow('', null),
+  locationId: objectId,
 });
 
 const updateProductSchema = createProductSchema.fork(

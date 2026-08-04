@@ -1,7 +1,7 @@
 const express = require('express');
 const productController = require('../controllers/productController');
 const validate = require('../middleware/validate');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize, optionalAuth } = require('../middleware/auth');
 const {
   createProductSchema,
   updateProductSchema,
@@ -16,7 +16,7 @@ router.get(
   productController.listProducts
 );
 
-router.get('/:slug', productController.getProductBySlug);
+router.get('/:slug', optionalAuth, productController.getProductBySlug);
 
 router.post(
   '/',

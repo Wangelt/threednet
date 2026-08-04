@@ -21,7 +21,10 @@ const authenticate = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, 'Invalid or expired access token');
   }
 
-  const user = await User.findById(payload.sub);
+  const user = await User.findById(payload.sub).populate(
+    'location',
+    'name code city isActive'
+  );
   if (!user || user.isBlocked) {
     throw new ApiError(401, 'User not found or blocked');
   }
@@ -36,7 +39,10 @@ const optionalAuth = asyncHandler(async (req, res, next) => {
 
   try {
     const payload = verifyAccessToken(token);
-    const user = await User.findById(payload.sub);
+    const user = await User.findById(payload.sub).populate(
+      'location',
+      'name code city isActive'
+    );
     if (user && !user.isBlocked) req.user = user;
   } catch {
     // ignore invalid token for optional auth

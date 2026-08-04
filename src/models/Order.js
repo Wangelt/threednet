@@ -95,6 +95,10 @@ const orderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'CustomOrderRequest',
     },
+    location: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Location',
+    },
     timeline: [timelineEventSchema],
     invoiceUrl: { type: String },
   },
@@ -112,5 +116,6 @@ orderSchema.index({ orderStatus: 1 });
 orderSchema.index({ paymentStatus: 1 });
 orderSchema.index({ razorpayOrderId: 1 });
 orderSchema.index({ createdAt: -1 });
+orderSchema.index({ location: 1 });
 
 module.exports = mongoose.model('Order', orderSchema);

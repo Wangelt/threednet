@@ -33,6 +33,11 @@ const userSchema = new mongoose.Schema(
       enum: ['customer', 'admin', 'super_admin'],
       default: 'customer',
     },
+    location: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Location',
+      default: undefined,
+    },
     isEmailVerified: { type: Boolean, default: false },
     isBlocked: { type: Boolean, default: false },
     oauthProvider: {

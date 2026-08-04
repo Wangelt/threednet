@@ -19,9 +19,13 @@ const {
   validateCouponForCart,
   buildCartSummary,
   markCouponUsed,
-  decrementStock,
   computeShipping,
 } = require('../services/cartService');
+const {
+  pickFulfillmentLocation,
+  decrementStockAtLocation,
+  restockAtLocation,
+} = require('../services/inventoryService');
 
 const createOrder = asyncHandler(async (req, res) => {
   const { paymentMethod, shippingAddress, addressId } = req.body;
@@ -106,12 +110,23 @@ const createOrder = asyncHandler(async (req, res) => {
     });
   }
 
-  await decrementStock(orderItems);
+  const fulfillmentLines = orderItems
+    .filter((i) => i.product && i.variantId)
+    .map((i) => ({
+      productId: i.product,
+      variantId: i.variantId,
+      quantity: i.quantity,
+      title: i.title,
+    }));
+
+  const location = await pickFulfillmentLocation(fulfillmentLines);
+  await decrementStockAtLocation(orderItems, location._id);
 
   const order = await Order.create({
     user: req.user._id,
     items: orderItems,
     shippingAddress: address,
+    location: location._id,
     subtotal,
     discount,
     shippingCost,
@@ -183,7 +198,7 @@ const myOrders = asyncHandler(async (req, res) => {
 });
 
 const listOrders = asyncHandler(async (req, res) => {
-  const { orderStatus, paymentStatus, from, to, page, limit } =
+  const { orderStatus, paymentStatus, from, to, locationId, page, limit } =
     req.validated.query;
   const filter = {};
   if (orderStatus) filter.orderStatus = orderStatus;
@@ -194,10 +209,20 @@ const listOrders = asyncHandler(async (req, res) => {
     if (to) filter.createdAt.$lte = to;
   }
 
+  if (req.user.role === 'admin') {
+    if (!req.user.location) {
+      throw new ApiError(400, 'Admin has no assigned location');
+    }
+    filter.location = req.user.location;
+  } else if (locationId) {
+    filter.location = locationId;
+  }
+
   const skip = (page - 1) * limit;
   const [orders, total] = await Promise.all([
     Order.find(filter)
       .populate('user', 'name email phone')
+      .populate('location', 'name code city')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit),
@@ -217,12 +242,12 @@ const getOrder = asyncHandler(async (req, res) => {
   const order = await loadOwnedOrder(req.params.id, req.user);
   await order.populate('user', 'name email phone');
   await order.populate('items.product', 'title slug images');
+  await order.populate('location', 'name code city');
   res.json({ success: true, data: { order } });
 });
 
 const updateOrderStatus = asyncHandler(async (req, res) => {
-  const order = await Order.findOne(resolveOrderFilter(req.params.id));
-  if (!order) throw new ApiError(404, 'Order not found');
+  const order = await loadOwnedOrder(req.params.id, req.user);
 
   const {
     orderStatus,
@@ -262,15 +287,18 @@ const cancelOrder = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Order can no longer be cancelled');
   }
 
-  // Restock
-  for (const item of order.items) {
-    const product = await Product.findById(item.product);
-    if (!product) continue;
-    const variant = findVariant(product, item.variantId);
-    if (variant) {
-      variant.stock += item.quantity;
-      product.totalSold = Math.max(0, product.totalSold - item.quantity);
-      await product.save();
+  if (order.location) {
+    await restockAtLocation(order.items, order.location);
+  } else {
+    for (const item of order.items) {
+      const product = await Product.findById(item.product);
+      if (!product) continue;
+      const variant = findVariant(product, item.variantId);
+      if (variant) {
+        variant.stock += item.quantity;
+        product.totalSold = Math.max(0, product.totalSold - item.quantity);
+        await product.save();
+      }
     }
   }
 

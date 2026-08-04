@@ -16,10 +16,22 @@ async function loadOwnedOrder(idOrOrderId, user) {
   const order = await Order.findOne(resolveOrderFilter(idOrOrderId));
   if (!order) throw new ApiError(404, 'Order not found');
 
-  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
-  if (!isAdmin && String(order.user) !== String(user._id)) {
+  const isSuperAdmin = user.role === 'super_admin';
+  const isAdmin = user.role === 'admin';
+
+  if (!isSuperAdmin && !isAdmin && String(order.user) !== String(user._id)) {
     throw new ApiError(403, 'Not allowed to access this order');
   }
+
+  if (
+    isAdmin &&
+    order.location &&
+    user.location &&
+    String(order.location) !== String(user.location)
+  ) {
+    throw new ApiError(403, 'Not allowed to access this order');
+  }
+
   return order;
 }
 

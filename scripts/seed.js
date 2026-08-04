@@ -4,9 +4,26 @@ const User = require('../src/models/User');
 const Category = require('../src/models/Category');
 const Product = require('../src/models/Product');
 const Coupon = require('../src/models/Coupon');
+const Location = require('../src/models/Location');
+const Inventory = require('../src/models/Inventory');
+const Order = require('../src/models/Order');
+const { recomputeVariantTotal } = require('../src/services/inventoryService');
 
 async function seed() {
   await connectDB();
+
+  let mainLocation = await Location.findOne({ code: 'MAIN' });
+  if (!mainLocation) {
+    mainLocation = await Location.create({
+      name: 'Main warehouse',
+      code: 'MAIN',
+      city: 'Primary',
+      isActive: true,
+    });
+    console.log('Location MAIN created');
+  } else {
+    console.log('Location MAIN already exists');
+  }
 
   const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@3dforge.local';
   const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Admin12345!';
@@ -18,11 +35,18 @@ async function seed() {
       email: adminEmail,
       passwordHash: adminPassword,
       role: 'admin',
+      location: mainLocation._id,
       isEmailVerified: true,
     });
     console.log(`Admin created: ${adminEmail} / ${adminPassword}`);
   } else {
-    console.log(`Admin already exists: ${adminEmail}`);
+    if (!admin.location) {
+      admin.location = mainLocation._id;
+      await admin.save();
+      console.log(`Admin assigned to MAIN: ${adminEmail}`);
+    } else {
+      console.log(`Admin already exists: ${adminEmail}`);
+    }
   }
 
   const superEmail = process.env.SEED_SUPER_ADMIN_EMAIL || 'superadmin@3dforge.local';
@@ -124,6 +148,47 @@ async function seed() {
       applicableTo: { type: 'all', categories: [], products: [] },
     });
     console.log('Sample coupon LAUNCH20 created');
+  }
+
+  // Backfill inventory + admin locations + orders
+  const adminsMissingLoc = await User.updateMany(
+    { role: 'admin', $or: [{ location: null }, { location: { $exists: false } }] },
+    { $set: { location: mainLocation._id } }
+  );
+  if (adminsMissingLoc.modifiedCount) {
+    console.log(`Assigned MAIN to ${adminsMissingLoc.modifiedCount} admin(s)`);
+  }
+
+  const products = await Product.find();
+  let inventoryUpserts = 0;
+  for (const product of products) {
+    for (const variant of product.variants || []) {
+      const existing = await Inventory.findOne({
+        variantId: variant._id,
+        location: mainLocation._id,
+      });
+      if (!existing) {
+        await Inventory.create({
+          product: product._id,
+          variantId: variant._id,
+          location: mainLocation._id,
+          stock: variant.stock || 0,
+        });
+        inventoryUpserts += 1;
+      }
+      await recomputeVariantTotal(product._id, variant._id);
+    }
+  }
+  if (inventoryUpserts) {
+    console.log(`Inventory rows created for MAIN: ${inventoryUpserts}`);
+  }
+
+  const orderBackfill = await Order.updateMany(
+    { $or: [{ location: null }, { location: { $exists: false } }] },
+    { $set: { location: mainLocation._id } }
+  );
+  if (orderBackfill.modifiedCount) {
+    console.log(`Orders backfilled to MAIN: ${orderBackfill.modifiedCount}`);
   }
 
   console.log('Seed complete');

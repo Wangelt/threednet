@@ -13,6 +13,8 @@ const reviewRoutes = require('./reviewRoutes');
 const notificationRoutes = require('./notificationRoutes');
 const customOrderRoutes = require('./customOrderRoutes');
 const uploadRoutes = require('./uploadRoutes');
+const locationRoutes = require('./locationRoutes');
+const inventoryRoutes = require('./inventoryRoutes');
 
 const router = express.Router();
 
@@ -23,6 +25,8 @@ router.get('/health', (req, res) => {
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/admin-users', adminUserRoutes);
+router.use('/locations', locationRoutes);
+router.use('/inventory', inventoryRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/products', productRoutes);
 router.use('/cart', cartRoutes);

@@ -85,6 +85,7 @@ const login = asyncHandler(async (req, res) => {
   }
   if (user.isBlocked) throw new ApiError(403, 'Account is blocked');
 
+  await user.populate('location', 'name code city isActive');
   const tokens = await issueTokens(user, res);
 
   res.json({
