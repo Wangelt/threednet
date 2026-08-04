@@ -23,6 +23,12 @@ module.exports = {
     refreshExpires: process.env.JWT_REFRESH_EXPIRES || '7d',
   },
   clientUrl: process.env.CLIENT_URL || 'http://localhost:3000',
+  adminUrl: process.env.ADMIN_URL || 'http://localhost:3000',
+  // Comma-separated extra origins, e.g. "http://localhost:3000,https://admin.example.com"
+  corsOrigins: (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
   smtp: {
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT) || 587,

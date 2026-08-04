@@ -3,7 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
-const { clientUrl, nodeEnv } = require('./config/env');
+const { clientUrl, adminUrl, corsOrigins, nodeEnv } = require('./config/env');
 const routes = require('./routes');
 const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');
@@ -14,10 +14,19 @@ const app = express();
 app.set('trust proxy', 1);
 
 const allowedOrigins = [
-  clientUrl,
-  'https://threednet.vercel.app',
-  'http://localhost:3000',
-].filter(Boolean);
+  ...new Set(
+    [
+      clientUrl,
+      adminUrl,
+      ...corsOrigins,
+      'https://threednet.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
+    ].filter(Boolean)
+  ),
+];
 
 app.use(
   cors({
@@ -26,9 +35,16 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
+      if (nodeEnv !== 'production') {
+        console.warn(`[cors] blocked origin: ${origin}`);
+      }
       return callback(null, false);
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Type'],
+    maxAge: 86400,
   })
 );
 app.use(helmet());

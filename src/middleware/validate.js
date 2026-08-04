@@ -15,8 +15,8 @@ function validate(schema, property = 'body') {
     req.validated = req.validated || {};
     req.validated[property] = value;
 
-    // Express 5: req.query is a read-only getter — don't assign to it
-    if (property !== 'query') {
+    // Express 5: req.query / req.params are read-only getters — don't assign
+    if (property !== 'query' && property !== 'params') {
       req[property] = value;
     }
 
