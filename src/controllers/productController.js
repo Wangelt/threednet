@@ -34,6 +34,10 @@ function isStaff(user) {
   return user && (user.role === 'admin' || user.role === 'super_admin');
 }
 
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 async function resolveStockLocationId(req, bodyLocationId) {
   if (req.user.role === 'admin') {
     if (!req.user.location) {
@@ -114,7 +118,15 @@ const listProducts = asyncHandler(async (req, res) => {
 
   const filter = { isActive: true };
 
-  if (q) filter.$text = { $search: q };
+  if (q) {
+    const pattern = new RegExp(escapeRegex(q.trim()), 'i');
+    filter.$or = [
+      { title: pattern },
+      { slug: pattern },
+      { shortDesc: pattern },
+      { tags: pattern },
+    ];
+  }
   if (category) filter.category = category;
   if (featured) filter.isFeatured = true;
   if (rating != null) filter.averageRating = { $gte: rating };
