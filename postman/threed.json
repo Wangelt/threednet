@@ -15,6 +15,10 @@
       "value": ""
     },
     {
+      "key": "firebaseIdToken",
+      "value": ""
+    },
+    {
       "key": "adminToken",
       "value": ""
     },
@@ -610,6 +614,122 @@
                 "body": {
                   "mode": "raw",
                   "raw": "{\n  \"email\": \"postman@example.com\",\n  \"password\": \"Password123!\"\n}"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Firebase Phone Login (Customer)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const code = pm.response.code;",
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) { json = { parseError: true }; }",
+                  "const ok = code >= 200 && code < 300;",
+                  "console.log(ok ? \"FIREBASE PHONE LOGIN SUCCESS\" : \"FIREBASE PHONE LOGIN ERROR\", code);",
+                  "console.log(\"message:\", json.message || \"(none)\");",
+                  "",
+                  "pm.test(\"Response is valid JSON\", function () {",
+                  "  pm.expect(json.parseError).to.not.eql(true);",
+                  "});",
+                  "",
+                  "pm.test(\"Body has success boolean\", function () {",
+                  "  pm.expect(json).to.have.property(\"success\");",
+                  "  pm.expect(json.success).to.be.a(\"boolean\");",
+                  "});",
+                  "",
+                  "if (code === 200) {",
+                  "  pm.test(\"SUCCESS: customer token and phone user\", function () {",
+                  "    pm.expect(json.success).to.eql(true);",
+                  "    pm.expect(json.data.accessToken).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.data.user.phone).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(json.data.user.role).to.eql(\"customer\");",
+                  "  });",
+                  "  pm.collectionVariables.set(\"accessToken\", json.data.accessToken);",
+                  "  if (json.data.user) pm.collectionVariables.set(\"userId\", json.data.user._id);",
+                  "} else {",
+                  "  pm.test(\"ERROR: Firebase login returns an error message\", function () {",
+                  "    pm.expect(json.success).to.eql(false);",
+                  "    pm.expect(json.message).to.be.a(\"string\").and.not.empty;",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/firebase-phone",
+            "description": "Customer-only Firebase phone login. First complete OTP verification in the storefront, copy the Firebase ID token, and set the firebaseIdToken collection variable. This does not affect the admin email/password login.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"{{firebaseIdToken}}\"\n}"
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"success\": true,\n    \"message\": \"Phone login successful\",\n    \"data\": {\n        \"user\": {\n            \"_id\": \"...\",\n            \"phone\": \"+918670010941\",\n            \"role\": \"customer\"\n        },\n        \"accessToken\": \"eyJhbGciOiJIUzI1NiIs...\"\n    }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/firebase-phone",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"idToken\": \"{{firebaseIdToken}}\"\n}"
+                }
+              }
+            },
+            {
+              "name": "Invalid Firebase Token",
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n    \"success\": false,\n    \"message\": \"Invalid or expired Firebase ID token\"\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "{{baseUrl}}/auth/firebase-phone",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"idToken\": \"invalid-token\"\n}"
                 }
               }
             }

@@ -13,6 +13,7 @@ const {
   sendPasswordResetEmail,
 } = require('../utils/email');
 const { nodeEnv } = require('../config/env');
+const firebaseAuth = require('../config/firebaseAdmin');
 
 const cookieOptions = {
   httpOnly: true,
@@ -91,6 +92,56 @@ const login = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: 'Logged in successfully',
+    data: {
+      user: user.toSafeObject(),
+      accessToken: tokens.accessToken,
+    },
+  });
+});
+
+const firebasePhoneLogin = asyncHandler(async (req, res) => {
+  const { idToken } = req.body;
+  if (!idToken) throw new ApiError(400, 'Firebase ID token required');
+
+  let decodedToken;
+  try {
+    decodedToken = await firebaseAuth.verifyIdToken(idToken);
+  } catch {
+    throw new ApiError(401, 'Invalid or expired Firebase ID token');
+  }
+
+  const phone = decodedToken.phone_number;
+  if (!phone) throw new ApiError(400, 'A verified phone number is required');
+
+  const syntheticEmail = `firebase-${decodedToken.uid}@phone.threedus.local`;
+  let user = await User.findOne({
+    $or: [{ phone }, { email: syntheticEmail }],
+  });
+
+  if (user && user.role !== 'customer') {
+    throw new ApiError(403, 'Admin accounts must use the admin login');
+  }
+
+  if (!user) {
+    user = await User.create({
+      name: decodedToken.name || `Customer ${phone.slice(-4)}`,
+      email: syntheticEmail,
+      phone,
+      isEmailVerified: true,
+      oauthProvider: undefined,
+    });
+  } else {
+    user.phone = phone;
+    user.isEmailVerified = true;
+    await user.save({ validateBeforeSave: false });
+  }
+
+  await user.populate('location', 'name code city isActive');
+  const tokens = await issueTokens(user, res);
+
+  res.json({
+    success: true,
+    message: 'Phone login successful',
     data: {
       user: user.toSafeObject(),
       accessToken: tokens.accessToken,
@@ -206,6 +257,7 @@ const me = asyncHandler(async (req, res) => {
 module.exports = {
   register,
   login,
+  firebasePhoneLogin,
   logout,
   refresh,
   forgotPassword,

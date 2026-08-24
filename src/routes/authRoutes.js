@@ -23,6 +23,7 @@ const authLimiter = rateLimit({
 
 router.post('/register', authLimiter, validate(registerSchema), authController.register);
 router.post('/login', authLimiter, validate(loginSchema), authController.login);
+router.post('/firebase-phone', authLimiter, authController.firebasePhoneLogin);
 router.post('/logout', authenticate, authController.logout);
 router.post('/refresh', authLimiter, authController.refresh);
 router.post(
