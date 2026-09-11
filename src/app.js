@@ -13,6 +13,10 @@ const app = express();
 
 app.set('trust proxy', 1);
 
+function normalizeOrigin(origin) {
+  return origin.trim().replace(/\/$/, '');
+}
+
 const allowedOrigins = [
   ...new Set(
     [
@@ -20,12 +24,15 @@ const allowedOrigins = [
       adminUrl,
       ...corsOrigins,
       'https://threednet.vercel.app',
+      'https://threedweb.vercel.app',
       'https://threedadmin.vercel.app',
       'http://localhost:3000',
       'http://localhost:3001',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:3001',
-    ].filter(Boolean)
+    ]
+      .filter(Boolean)
+      .map(normalizeOrigin)
   ),
 ];
 
@@ -33,7 +40,7 @@ app.use(
   cors({
     origin(origin, callback) {
       // Allow non-browser clients (Postman, server-to-server)
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(normalizeOrigin(origin))) {
         return callback(null, true);
       }
       if (nodeEnv !== 'production') {
