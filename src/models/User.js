@@ -79,5 +79,6 @@ userSchema.methods.toSafeObject = function toSafeObject() {
 };
 
 userSchema.index({ role: 1 });
+userSchema.index({ phone: 1 });
 
 module.exports = mongoose.model('User', userSchema);

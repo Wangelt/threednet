@@ -71,6 +71,14 @@ const verifyPayment = asyncHandler(async (req, res) => {
 
   const order = await loadOwnedOrder(orderId, req.user);
 
+  if (order.paymentStatus === 'paid') {
+    return res.json({
+      success: true,
+      message: 'Payment already verified',
+      data: { order },
+    });
+  }
+
   if (order.razorpayOrderId && order.razorpayOrderId !== razorpayOrderId) {
     throw new ApiError(400, 'Razorpay order mismatch');
   }
@@ -93,7 +101,6 @@ const verifyPayment = asyncHandler(async (req, res) => {
 
   order.razorpayOrderId = razorpayOrderId;
   order.razorpayPaymentId = razorpayPaymentId;
-  order.razorpaySignature = razorpaySignature;
   order.paymentStatus = 'paid';
   order.orderStatus = 'payment_confirmed';
   order.timeline.push({

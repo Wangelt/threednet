@@ -27,6 +27,20 @@ const {
   restockAtLocation,
 } = require('../services/inventoryService');
 
+// Prevents nonsensical admin edits (e.g. delivered -> pending). Same-status
+// "updates" (just editing tracking info) are always allowed separately.
+const ORDER_STATUS_TRANSITIONS = {
+  pending: ['payment_confirmed', 'cancelled'],
+  payment_confirmed: ['in_production', 'cancelled', 'refund_initiated'],
+  in_production: ['quality_check', 'cancelled', 'refund_initiated'],
+  quality_check: ['in_production', 'shipped', 'refund_initiated'],
+  shipped: ['delivered', 'refund_initiated'],
+  delivered: ['refund_initiated'],
+  cancelled: ['refund_initiated', 'refunded'],
+  refund_initiated: ['refunded'],
+  refunded: [],
+};
+
 const createOrder = asyncHandler(async (req, res) => {
   const { paymentMethod, shippingAddress, addressId } = req.body;
 
@@ -133,7 +147,7 @@ const createOrder = asyncHandler(async (req, res) => {
     total,
     coupon: couponPayload,
     paymentMethod,
-    paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending',
+    paymentStatus: 'pending',
     orderStatus:
       paymentMethod === 'cod' ? 'payment_confirmed' : 'pending',
     timeline: [
@@ -157,8 +171,6 @@ const createOrder = asyncHandler(async (req, res) => {
     { $set: { items: [] }, $unset: { couponApplied: 1 } }
   );
 
-  // bump totalSold already done in decrementStock
-
   sendMail({
     to: req.user.email,
     subject: `Order confirmed — ${order.orderId}`,
@@ -179,7 +191,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
 const myOrders = asyncHandler(async (req, res) => {
   const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 20;
+  const limit = Math.min(Number(req.query.limit) || 20, 100);
   const skip = (page - 1) * limit;
 
   const filter = { user: req.user._id };
@@ -257,6 +269,16 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
     estimatedDelivery,
     message,
   } = req.body;
+
+  if (orderStatus !== order.orderStatus) {
+    const allowed = ORDER_STATUS_TRANSITIONS[order.orderStatus] || [];
+    if (!allowed.includes(orderStatus)) {
+      throw new ApiError(
+        400,
+        `Cannot change order status from "${order.orderStatus}" to "${orderStatus}"`
+      );
+    }
+  }
 
   order.orderStatus = orderStatus;
   if (trackingNumber != null) order.trackingNumber = trackingNumber;

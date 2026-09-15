@@ -161,28 +161,26 @@ function buildCartSummary(cart) {
   };
 }
 
+// Atomic increment so two concurrent checkouts can't both slip past
+// usageLimit between validateCouponForCart's read and this write.
 async function markCouponUsed(coupon, userId) {
-  coupon.usedCount += 1;
-  coupon.usedBy.push(userId);
-  await coupon.save();
-}
-
-async function decrementStock(orderItems) {
-  for (const item of orderItems) {
-    const product = await Product.findById(item.product);
-    if (!product) continue;
-    const variant = findVariant(product, item.variantId);
-    if (!variant) continue;
-    if (variant.stock < item.quantity) {
-      throw new ApiError(
-        400,
-        `Insufficient stock for ${item.title} (${variant.label})`
-      );
-    }
-    variant.stock -= item.quantity;
-    product.totalSold += item.quantity;
-    await product.save();
+  const updated = await Coupon.findOneAndUpdate(
+    {
+      _id: coupon._id,
+      $or: [
+        { usageLimit: null },
+        { $expr: { $lt: ['$usedCount', '$usageLimit'] } },
+      ],
+    },
+    { $inc: { usedCount: 1 }, $push: { usedBy: userId } },
+    { new: true }
+  );
+  if (!updated) {
+    console.warn(
+      `[coupon] usage limit reached concurrently for ${coupon.code}; order already placed, counter left unchanged`
+    );
   }
+  return updated || coupon;
 }
 
 module.exports = {
@@ -194,5 +192,4 @@ module.exports = {
   validateCouponForCart,
   buildCartSummary,
   markCouponUsed,
-  decrementStock,
 };
