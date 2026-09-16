@@ -1,10 +1,11 @@
 const { smtp, clientUrl } = require('../config/env');
+const logger = require('./logger');
 
 async function sendMail({ to, subject, text, html }) {
   const hasSmtp = Boolean(smtp.host && smtp.user && smtp.pass);
 
   if (!hasSmtp) {
-    console.log('[email:stub]', { to, subject, text });
+    logger.info('[email:stub]', { to, subject, text });
     return { stubbed: true };
   }
 
@@ -13,11 +14,7 @@ async function sendMail({ to, subject, text, html }) {
   try {
     nodemailer = require('nodemailer');
   } catch {
-    console.log('[email:stub] nodemailer not installed — logging instead', {
-      to,
-      subject,
-      text,
-    });
+    logger.info('[email:stub] nodemailer not installed', { to, subject, text });
     return { stubbed: true };
   }
 

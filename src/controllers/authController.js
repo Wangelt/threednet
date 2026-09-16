@@ -1,3 +1,6 @@
+
+
+
 const User = require('../models/User');
 const ApiError = require('../utils/ApiError');
 const asyncHandler = require('../utils/asyncHandler');
@@ -13,7 +16,7 @@ const {
   sendPasswordResetEmail,
 } = require('../utils/email');
 const { nodeEnv } = require('../config/env');
-const firebaseAuth = require('../config/firebaseAdmin');
+const getFirebaseAuth = require('../config/firebaseAdmin');
 
 const cookieOptions = {
   httpOnly: true,
@@ -45,6 +48,23 @@ async function issueTokens(user, res) {
   await user.save({ validateBeforeSave: false });
   setAuthCookies(res, accessToken, refreshToken);
   return { accessToken, refreshToken };
+}
+
+function isStaffRole(role) {
+  return role === 'admin' || role === 'super_admin';
+}
+
+// The customer app authenticates via the httpOnly refreshToken cookie only.
+// The admin app is intentionally cookie-free (bearer token in localStorage),
+// so it has no way to silently refresh unless the refresh token is also
+// handed to it in the JSON body — scoped to staff logins to avoid widening
+// the customer app's exposure to a JS-readable refresh token.
+function authResponseData(user, tokens) {
+  return {
+    user: user.toSafeObject(),
+    accessToken: tokens.accessToken,
+    ...(isStaffRole(user.role) ? { refreshToken: tokens.refreshToken } : {}),
+  };
 }
 
 const register = asyncHandler(async (req, res) => {
@@ -92,10 +112,7 @@ const login = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: 'Logged in successfully',
-    data: {
-      user: user.toSafeObject(),
-      accessToken: tokens.accessToken,
-    },
+    data: authResponseData(user, tokens),
   });
 });
 
@@ -105,8 +122,9 @@ const firebasePhoneLogin = asyncHandler(async (req, res) => {
 
   let decodedToken;
   try {
-    decodedToken = await firebaseAuth.verifyIdToken(idToken);
-  } catch {
+    decodedToken = await getFirebaseAuth().verifyIdToken(idToken);
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
     throw new ApiError(401, 'Invalid or expired Firebase ID token');
   }
 
@@ -182,7 +200,10 @@ const refresh = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: { accessToken: tokens.accessToken },
+    data: {
+      accessToken: tokens.accessToken,
+      ...(isStaffRole(user.role) ? { refreshToken: tokens.refreshToken } : {}),
+    },
   });
 });
 

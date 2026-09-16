@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { mongoUri, nodeEnv } = require('./env');
+const logger = require('../utils/logger');
 
 /**
  * Cached connection for serverless (Vercel) — reuse across warm invocations.
@@ -22,9 +23,7 @@ async function connectDB() {
       maxPoolSize: 10,
     })
     .then((conn) => {
-      if (nodeEnv !== 'test') {
-        console.log('MongoDB connected');
-      }
+      logger.info('MongoDB connected');
       connecting = null;
       return conn;
     })

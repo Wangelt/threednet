@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const Coupon = require('../models/Coupon');
 const ApiError = require('../utils/ApiError');
 const { shipping } = require('../config/env');
+const logger = require('../utils/logger');
 
 async function getOrCreateCart(userId) {
   let cart = await Cart.findOne({ user: userId });
@@ -176,9 +177,7 @@ async function markCouponUsed(coupon, userId) {
     { new: true }
   );
   if (!updated) {
-    console.warn(
-      `[coupon] usage limit reached concurrently for ${coupon.code}; order already placed, counter left unchanged`
-    );
+    logger.warn('[coupon] usage limit reached concurrently', { code: coupon.code });
   }
   return updated || coupon;
 }
