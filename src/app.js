@@ -73,7 +73,11 @@ app.use(
     maxAge: 86400,
   })
 );
-app.use(helmet());
+app.use(helmet({
+  // API responses must be loadable cross-origin; the default "same-origin"
+  // policy would block browsers from reading responses from other origins.
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(
   morgan(nodeEnv === 'production' ? 'combined' : 'dev', {
     stream: { write: (msg) => logger.info(msg.trim()) },
