@@ -1,13 +1,13 @@
-const { cert, getApps, initializeApp } = require('firebase-admin/app');
-const { getAuth } = require('firebase-admin/auth');
-
 let cachedAuth;
 
 // Lazy init: a blank/missing FIREBASE_* env var must not crash the whole API
 // at require-time (this module is pulled in eagerly via authController.js).
 // Only /auth/firebase-phone actually needs it, so failures surface there.
+// firebase-admin/auth also pulls jwks-rsa → jose; keep that off the boot path.
 function getFirebaseAuth() {
   if (cachedAuth) return cachedAuth;
+  const { cert, getApps, initializeApp } = require('firebase-admin/app');
+  const { getAuth } = require('firebase-admin/auth');
   const firebaseApp = getApps().length
     ? getApps()[0]
     : initializeApp({
