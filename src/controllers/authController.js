@@ -160,10 +160,7 @@ const firebasePhoneLogin = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     message: 'Phone login successful',
-    data: {
-      user: user.toSafeObject(),
-      accessToken: tokens.accessToken,
-    },
+    data: authResponseData(user, tokens),
   });
 });
 
