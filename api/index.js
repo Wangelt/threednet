@@ -1,13 +1,14 @@
 let initError = null;
 let app;
+let connectDB;
+
 try {
   app = require('../src/app');
+  ({ connectDB } = require('../src/config/db'));
 } catch (err) {
   initError = err;
-  console.error('[init] Failed to load app:', err.message, err.stack);
+  console.error('[init] Failed to initialize:', err.message, '\n', err.stack);
 }
-
-const { connectDB } = require('../src/config/db');
 
 let ready;
 async function getApp() {
