@@ -23,6 +23,15 @@ async function getApp() {
 }
 
 module.exports = async (req, res) => {
+  // Deployment probe — confirms this code is live
+  if (req.url === '/_probe') {
+    return res.status(200).json({
+      deployed: true,
+      build: '2026-10-02-bcryptjs',
+      initError: initError ? initError.message : null,
+    });
+  }
+
   if (initError) {
     return res.status(500).json({
       success: false,
